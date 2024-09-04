@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 class Cliente:
     def __init__(self, nome, senha):
@@ -6,13 +7,21 @@ class Cliente:
         self.senha = senha
         self.saldo = 0.0
         self.historico = []
-        self.arquivo = f"Data.txt"
+        self.saques_hoje = 0
+        self.transferencias_hoje = 0
+        self.ultimo_saque_dia = None
+        self.ultima_transferencia_dia = None
+        self.arquivo = f"{self.nome}.txt"
 
     def salvar_dados(self):
         with open(self.arquivo, 'w') as file:
             file.write(f"Nome: {self.nome}\n")
             file.write(f"Senha: {self.senha}\n")
             file.write(f"Saldo: {self.saldo}\n")
+            file.write(f"Saques Hoje: {self.saques_hoje}\n")
+            file.write(f"Último Saque Dia: {self.ultimo_saque_dia}\n")
+            file.write(f"Transferências Hoje: {self.transferencias_hoje}\n")
+            file.write(f"Última Transferência Dia: {self.ultima_transferencia_dia}\n")
             file.write("Histórico de Operações:\n")
             for operacao in self.historico:
                 file.write(operacao + "\n")
@@ -22,26 +31,70 @@ class Cliente:
             with open(self.arquivo, 'r') as file:
                 lines = file.readlines()
                 self.saldo = float(lines[2].split(": ")[1])
-                self.historico = [line.strip() for line in lines[4:]]
+                self.saques_hoje = int(lines[3].split(": ")[1])
+                self.ultimo_saque_dia = lines[4].split(": ")[1].strip()
+                self.transferencias_hoje = int(lines[5].split(": ")[1])
+                self.ultima_transferencia_dia = lines[6].split(": ")[1].strip()
+                self.historico = [line.strip() for line in lines[8:]]
+
+    def atualizar_limites(self):
+        hoje = datetime.now().strftime("%Y-%m-%d")
+        if self.ultimo_saque_dia != hoje:
+            self.saques_hoje = 0
+            self.ultimo_saque_dia = hoje
+        if self.ultima_transferencia_dia != hoje:
+            self.transferencias_hoje = 0
+            self.ultima_transferencia_dia = hoje
 
     def depositar(self, valor):
         self.saldo += valor
-        self.historico.append(f"Depósito de R$ {valor:.2f}")
+        self.historico.append(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Depósito de R$ {valor:.2f}")
         self.salvar_dados()
 
     def sacar(self, valor):
-        if valor <= self.saldo:
-            self.saldo -= valor
-            self.historico.append(f"Saque de R$ {valor:.2f}")
-            self.salvar_dados()
+        self.atualizar_limites()
+        if self.saques_hoje < 3:
+            if valor <= self.saldo:
+                self.saldo -= valor
+                self.saques_hoje += 1
+                self.historico.append(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Saque de R$ {valor:.2f}")
+                self.salvar_dados()
+            else:
+                print("Saldo insuficiente.")
         else:
-            print("Saldo insuficiente.")
+            print("Limite de 3 saques diários atingido.")
 
-    def exibir_extrato(self):
+    def transferir(self, valor, destinatario):
+        self.atualizar_limites()
+        if self.transferencias_hoje < 10:
+            if valor <= self.saldo:
+                self.saldo -= valor
+                destinatario.depositar(valor)
+                self.transferencias_hoje += 1
+                self.historico.append(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} - Transferência de R$ {valor:.2f} para {destinatario.nome}")
+                self.salvar_dados()
+                destinatario.salvar_dados()
+            else:
+                print("Saldo insuficiente.")
+        else:
+            print("Limite de 10 transferências diárias atingido.")
+
+    def exibir_extrato(self, tipo_extrato="completo"):
+        hoje = datetime.now().strftime("%Y-%m-%d")
+        print("\nExtrato de Operações")
+        print("-" * 40)
         print(f"Saldo atual: R$ {self.saldo:.2f}")
-        print("Histórico de Operações:")
-        for operacao in self.historico:
-            print(operacao)
+        print("-" * 40)
+
+        if tipo_extrato == "completo":
+            for operacao in self.historico:
+                print(operacao)
+        elif tipo_extrato == "diario":
+            operacoes_hoje = [op for op in self.historico if op.startswith(hoje)]
+            for operacao in operacoes_hoje:
+                print(operacao)
+        
+        print("-" * 40)
 
 
 class DIOBank:
@@ -70,6 +123,9 @@ class DIOBank:
             print("Conta não encontrada.")
         return None
 
+    def buscar_cliente(self, nome):
+        return self.clientes.get(nome, None)
+
 
 # Exemplo de uso do programa
 def main():
@@ -95,8 +151,10 @@ def main():
                 while True:
                     print("\n1. Depositar")
                     print("\n2. Sacar")
-                    print("\n3. Verificar extrato")
-                    print("\n4. Sair")
+                    print("\n3. Transferir")
+                    print("\n4. Verificar extrato completo")
+                    print("\n5. Verificar extrato do dia")
+                    print("\n6. Sair")
                     escolha = input("\nEscolha uma opção: ")
 
                     if escolha == '1':
@@ -106,8 +164,18 @@ def main():
                         valor = float(input("Digite o valor para saque: "))
                         cliente.sacar(valor)
                     elif escolha == '3':
-                        cliente.exibir_extrato()
+                        destinatario_nome = input("Digite o nome do destinatário: ")
+                        destinatario = banco.buscar_cliente(destinatario_nome)
+                        if destinatario:
+                            valor = float(input("Digite o valor para transferência: "))
+                            cliente.transferir(valor, destinatario)
+                        else:
+                            print("Destinatário não encontrado.")
                     elif escolha == '4':
+                        cliente.exibir_extrato(tipo_extrato="completo")
+                    elif escolha == '5':
+                        cliente.exibir_extrato(tipo_extrato="diario")
+                    elif escolha == '6':
                         break
                     else:
                         print("Opção inválida.")
