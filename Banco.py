@@ -2,9 +2,10 @@ import os
 from datetime import datetime
 
 class Cliente:
-    def __init__(self, nome, senha):
+    def __init__(self, nome, senha, tipo_cliente="comum"):
         self.nome = nome
         self.senha = senha
+        self.tipo_cliente = tipo_cliente
         self.saldo = 0.0
         self.historico = []
         self.saques_hoje = 0
@@ -17,6 +18,7 @@ class Cliente:
         with open(self.arquivo, 'w') as file:
             file.write(f"Nome: {self.nome}\n")
             file.write(f"Senha: {self.senha}\n")
+            file.write(f"Tipo: {self.tipo_cliente}\n")
             file.write(f"Saldo: {self.saldo}\n")
             file.write(f"Saques Hoje: {self.saques_hoje}\n")
             file.write(f"Último Saque Dia: {self.ultimo_saque_dia}\n")
@@ -30,12 +32,12 @@ class Cliente:
         if os.path.exists(self.arquivo):
             with open(self.arquivo, 'r') as file:
                 lines = file.readlines()
-                self.saldo = float(lines[2].split(": ")[1])
-                self.saques_hoje = int(lines[3].split(": ")[1])
-                self.ultimo_saque_dia = lines[4].split(": ")[1].strip()
-                self.transferencias_hoje = int(lines[5].split(": ")[1])
-                self.ultima_transferencia_dia = lines[6].split(": ")[1].strip()
-                self.historico = [line.strip() for line in lines[8:]]
+                self.saldo = float(lines[3].split(": ")[1])
+                self.saques_hoje = int(lines[4].split(": ")[1])
+                self.ultimo_saque_dia = lines[5].split(": ")[1].strip()
+                self.transferencias_hoje = int(lines[6].split(": ")[1])
+                self.ultima_transferencia_dia = lines[7].split(": ")[1].strip()
+                self.historico = [line.strip() for line in lines[9:]]
 
     def atualizar_limites(self):
         hoje = datetime.now().strftime("%Y-%m-%d")
@@ -101,11 +103,11 @@ class DIOBank:
     def __init__(self):
         self.clientes = {}
 
-    def criar_conta(self, nome, senha):
+    def criar_conta(self, nome, senha, tipo_cliente="comum"):
         if nome in self.clientes:
             print("Nome de usuário já existe.")
         else:
-            cliente = Cliente(nome, senha)
+            cliente = Cliente(nome, senha, tipo_cliente)
             self.clientes[nome] = cliente
             cliente.salvar_dados()
             print(f"Conta criada para {nome}.")
@@ -126,6 +128,33 @@ class DIOBank:
     def buscar_cliente(self, nome):
         return self.clientes.get(nome, None)
 
+    def listar_clientes(self):
+        print("\nClientes cadastrados:")
+        for cliente in self.clientes.values():
+            print(f"Nome: {cliente.nome}, Tipo: {cliente.tipo_cliente}")
+
+    def listar_contas(self):
+        print("\nContas cadastradas:")
+        for cliente in self.clientes.values():
+            print(f"Cliente: {cliente.nome}, Saldo: R$ {cliente.saldo:.2f}")
+
+    def acessar_menu_administrador(self):
+        print("\n=== Menu de Administrador ===")
+        while True:
+            print("\n1. Listar todos os clientes")
+            print("2. Listar todas as contas")
+            print("3. Voltar")
+            escolha = input("\nEscolha uma opção: ")
+
+            if escolha == '1':
+                self.listar_clientes()
+            elif escolha == '2':
+                self.listar_contas()
+            elif escolha == '3':
+                break
+            else:
+                print("Opção inválida.")
+
 
 # Exemplo de uso do programa
 def main():
@@ -134,13 +163,15 @@ def main():
     while True:
         print("\n1. Criar conta")
         print("\n2. Logar")
-        print("\n3. Sair")
+        print("\n3. Acessar menu de administrador")
+        print("\n4. Sair")
         escolha = input("\nEscolha uma opção: ")
 
         if escolha == '1':
             nome = input("Digite seu nome de usuário: ")
             senha = input("Digite sua senha: ")
-            banco.criar_conta(nome, senha)
+            tipo_cliente = input("Digite o tipo de cliente (comum, premium): ")
+            banco.criar_conta(nome, senha, tipo_cliente)
 
         elif escolha == '2':
             nome = input("Digite seu nome de usuário: ")
@@ -181,6 +212,9 @@ def main():
                         print("Opção inválida.")
 
         elif escolha == '3':
+            banco.acessar_menu_administrador()
+
+        elif escolha == '4':
             break
         else:
             print("Opção inválida.")
@@ -188,3 +222,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
